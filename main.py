@@ -1,12 +1,11 @@
 import os
 import logging
-import asyncio
 from aiohttp import web
-from aiogram import Bot, Dispatcher, types
+from aiogram import Bot, Dispatcher
 
 # Токен твого бота
 TOKEN = "8924046656:AAFptNIBxDr-5MA773mF7OAdE2dJkfQEUkE"
-# ID каналу @nizhyn_life (перевір, чи бот має там права адміністратора)
+# ID каналу @nizhyn_life
 CHANNEL_ID = "@nizhyn_life"
 
 logging.basicConfig(level=logging.INFO)
@@ -30,7 +29,6 @@ async def handle_webhook(request):
         else:
             return web.json_response({"status": "ignored", "reason": "unknown status"}, status=400)
 
-        # Надсилаємо сповіщення у канал
         await bot.send_message(CHANNEL_ID, message_text, parse_mode="Markdown")
         return web.json_response({"status": "success"})
 
@@ -41,18 +39,13 @@ async def handle_webhook(request):
 async def index(request):
     return web.Response(text="Nizhyn Alert Bot is running 24/7!")
 
-# Налаштування асинхронного вебсервера для aiohttp
-async def init_app():
+# Головна функція для запуску сервера
+if __name__ == "__main__":
     app = web.Application()
     app.router.add_get("/", index)
     app.router.add_post("/webhook", handle_webhook)
-    return app
-
-if __name__ == "__main__":
-    loop = asyncio.get_event_loop()
-    app = loop.run_until_complete(init_app())
     
-    # Отримуємо порт від Render або ставимо 8080 за замовчуванням для ПК
+    # Отримуємо порт від Render або ставимо 8080 за замовчуванням
     port = int(os.environ.get("PORT", 8080))
     
     web.run_app(app, host="0.0.0.0", port=port)
