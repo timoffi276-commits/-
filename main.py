@@ -11,13 +11,11 @@ logging.basicConfig(level=logging.INFO)
 bot = Bot(token=TOKEN)
 dp = Dispatcher(bot)
 
-# Зберігаємо останній відомий стан тривоги
 last_status = None
 
 async def check_alert_status():
     global last_status
-    # Використовуємо стабільний відкритий API статусів
-    url = "https://api.alerts.in.ua/v1/iot/stat.json"
+    url = "https://ubilling.net.ua/aerial/"
     
     headers = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
@@ -28,22 +26,12 @@ async def check_alert_status():
             try:
                 async with session.get(url, headers=headers, timeout=15) as response:
                     if response.status == 200:
-                        data = await response.json()
+                        data = await response.text()
                         
-                        # Шукаємо статус для Чернігівської області / Ніжинського району в даних
-                        # API зазвичай повертає список регіонів або словник
-                        states = data.get("states", {})
-                        # Шукаємо ключі або значення, що стосуються Чернігівщини (наприклад, oblast або district)
-                        # Для надійності перевіряємо весь текст відповіді на наявність сигналів
-                        raw_text = str(data)
-                        
-                        # Визначаємо, чи є тривога (якщо в JSON є ознака активної тривоги для нашого регіону)
-                        # Зазвичай у цьому форматі активна тривога позначена відповідним полем
-                        is_alert = "Nizhyn" in raw_text and ("active" in raw_text or "1" in raw_text)
-                        
+                        is_alert = "Чернігівська область" in data and ("1" in data or "active" in data)
                         current_status = "active" if is_alert else "clear"
                         
-                        logging.info(f"Перевірка тривоги. Поточний визначений стан: {current_status}")
+                        logging.info(f"Стан тривоги: {current_status}")
                         
                         if last_status is not None and current_status != last_status:
                             if current_status == "active":
@@ -52,7 +40,7 @@ async def check_alert_status():
                                 msg = "🟢 **Відбій повітряної тривоги в Ніжинському районі.** Можна покидати укриття."
                             
                             await bot.send_message(CHANNEL_ID, msg, parse_mode="Markdown")
-                            logging.info(f"Сенсація! Стан змінився. Повідомлення надіслано в канал.")
+                            logging.info("Повідомлення надіслано в канал!")
                         
                         last_status = current_status
                     else:
@@ -60,7 +48,7 @@ async def check_alert_status():
             except Exception as e:
                 logging.error(f"Помилка під час запиту: {e}")
             
-            await asyncio.sleep(20)
+            await asyncio.sleep(30)
 
 async def index(request):
     return web.Response(text="Nizhyn Alert Bot is running 24/7!")
