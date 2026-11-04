@@ -2,7 +2,7 @@ import os
 import logging
 import asyncio
 from aiohttp import web, ClientSession
-from aiogram import Bot, Dispatcher, types
+from aiogram import Bot
 
 # --- НАЛАШТУВАННЯ ---
 TELEGRAM_BOT_TOKEN = "8924046656:AAFptNIBxDr-5MA773mF7OAdE2dJkfQEUkE"
@@ -15,20 +15,7 @@ logging.basicConfig(
 )
 
 bot = Bot(token=TELEGRAM_BOT_TOKEN)
-dp = Dispatcher(bot)
-
 last_alert_status = None
-
-
-# --- КОМАНДА ДЛЯ ПРЕЗЕНТАЦІЇ (МИТТЄВИЙ ТЕСТ СПОВІЩЕНЬ) ---
-@dp.message_handler(commands=['test', 'alert'])
-async def test_alert_command(message: types.Message):
-    await message.reply("🧪 Тестове сповіщення надсилається в канал...")
-    await bot.send_message(
-        CHANNEL_ID, 
-        "🔴 **ТЕСТОВЕ СПОВІЩЕННЯ!** Увага! Перевірка системи оповіщення Ніжинського району пройшла успішно! 🚀", 
-        parse_mode="Markdown"
-    )
 
 
 async def check_alert_status():
@@ -77,10 +64,6 @@ async def check_alert_status():
                 except Exception:
                     continue
             
-            if not success:
-                # Щоб логи не забивалися, це фоновий процес, який тихо чекає наступного циклу
-                pass
-            
             await asyncio.sleep(30)
 
 
@@ -93,7 +76,6 @@ async def setup_background_loop(app):
 
 
 if __name__ == "__main__":
-    # Запуск асинхронного вебсервера для Render
     app = web.Application()
     app.router.add_get("/", handle_root_ping)
     app.on_startup.append(setup_background_loop)
@@ -101,6 +83,5 @@ if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8080))
     logging.info(f"Запуск веб-сервера на порті {port}...")
     
-    # Запуск бота разом із вебсервером через aiogram executor
-    from aiogram import executor
-    # Увага: для сумісності з aiohttp використовуємо вебхуки або повний запуск циклу
+    # Головний рядок, який тримає сервер активним і не дає йому вимкнутися
+    web.run_app(app, host="0.0.0.0", port=port)
