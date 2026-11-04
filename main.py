@@ -21,13 +21,15 @@ last_alert_status = None
 async def check_alert_status():
     global last_alert_status
     
+    # Використовуємо актуальне стабільне джерело (формат API карти тривог)
     sources = [
-        "https://ubilling.net.ua/aerial/",
-        "https://emapa.fra1.cdn.digitaloceanspaces.com/alerts.json"
+        "https://api.alerts.in.ua/v1/iot/active_air_raid_alerts_by_oblast.json", 
+        "https://ubilling.net.ua/aerial/"
     ]
     
     headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
+        "X-API-Key": "free" # Для публічних тестових запитів
     }
     
     logging.info("🚀 Фоновий моніторинг повітряних тривог запущено і готовий до роботи.")
@@ -52,8 +54,8 @@ async def check_alert_status():
                                 raw_text = await response.text()
                                 logging.info(f"📄 Дані з {url} прочитані як звичайний текст.")
                             
-                            # Перевірка наявності тривоги
-                            is_chernihiv_alert = ("Чернігівська" in raw_text or "Ніжин" in raw_text) and ("active" in raw_text or "1" in raw_text or "true" in raw_text.lower())
+                            # Перевірка наявності тривоги для Чернігівщини
+                            is_chernihiv_alert = ("Чернігівська" in raw_text or "Chernihiv" in raw_text or "14" in raw_text) and ("active" in raw_text or "1" in raw_text or "true" in raw_text.lower())
                             current_status = "active" if is_chernihiv_alert else "clear"
                             
                             logging.info(f"🔎 Результат аналізу для [{url}]: визначено статус -> [{current_status.upper()}]")
@@ -75,7 +77,7 @@ async def check_alert_status():
                             
                             last_alert_status = current_status
                             success = True
-                            break # Виходимо з циклу джерел, бо успішно отримали дані
+                            break 
                         else:
                             logging.warning(f"⚠️ Джерело {url} повернуло неочікуваний статус: {response.status}")
                             
