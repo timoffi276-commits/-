@@ -26,73 +26,74 @@ async def check_alert_status():
     ]
     
     headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+        "Accept-Language": "uk-UA,uk;q=0.9,en-US;q=0.8,en;q=0.7"
     }
     
-    logging.info("🚀 Фоновий моніторинг повітряних тривог для Ніжина запущено.")
+    logging.info("🚀 Автоматичний моніторинг Нептуна запущено.")
 
     async with ClientSession() as session:
         while True:
-            logging.info("🔍 Починаємо новий цикл перевірки Нептуна...")
+            logging.info("🔍 Перевіряємо стан на Нептуні...")
             success = False
             
             for url in sources:
                 try:
-                    logging.info(f"🌐 Надсилаємо запит до Нептуна: {url}")
-                    async with session.get(url, headers=headers, timeout=10) as response:
-                        logging.info(f"📥 Отримано відповідь від Нептуна із кодом статусу: {response.status}")
-                        
+                    async with session.get(url, headers=headers, timeout=15) as response:
                         if response.status == 200:
                             raw_text = await response.text()
                             text_lower = raw_text.lower()
                             
-                            # Шукаємо згадки саме Ніжина або району та статус тривоги
-                            is_nizhyn_mentioned = "ніжин" in text_lower
-                            has_alarm = "тривога" in text_lower or "активна" in text_lower or "небезпека" in text_lower
-                            has_clear = "відбій" in text_lower or "скасовано" in text_lower
+                            # Логуємо невелику частину тексту зі сторінки для контролю
+                            logging.info(f"📄 Зчитано символів з сайту: {len(raw_text)}")
                             
-                            # Якщо згадується Ніжин і є тривога (і немає відбою)
-                            if is_nizhyn_mentioned and has_alarm and not has_clear:
+                            # Перевіряємо наявність маркерів тривоги чи активного стану на сторінці
+                            # (Можемо шукати класи стилів або специфічні слова, які з'являються при тривозі)
+                            has_active_class = "alarm" in text_lower or "danger" in text_lower or "red" in text_lower or "активна" in text_lower
+                            has_nizhyn = "ніжин" in text_lower
+                            
+                            # Якщо сайт загалом сигналізує про небезпеку
+                            if has_active_class and ("тривога" in text_lower or "небезпека" in text_lower):
                                 current_status = "active"
                             else:
                                 current_status = "clear"
                                 
-                            logging.info(f"🔎 Результат аналізу для Ніжина: визначено статус -> [{current_status.upper()}]")
+                            logging.info(f"🔎 Поточний визначений статус: [{current_status.upper()}]")
                             
                             if last_alert_status is None:
                                 last_alert_status = current_status
-                                logging.info(f"📌 Початковий статус встановлено в пам'яті: {current_status}")
+                                logging.info(f"📌 Початковий статус збережено: {current_status}")
                             elif current_status != last_alert_status:
                                 message_text = (
                                     "🔴 **УВАГА! Повітряна тривога в Ніжині та районі!** Пройдіть в укриття!"
                                     if current_status == "active"
                                     else "🟢 **Відбій повітряної тривоги в Ніжині та районі.** Загроза минула."
                                 )
-                                logging.info(f"⚡ Статус змінився з [{last_alert_status}] на [{current_status}]! Надсилаємо сповіщення в канал...")
+                                logging.info(f"⚡ ЗМІНА СТАТУСУ з [{last_alert_status}] на [{current_status}]! Надсилаємо в канал...")
                                 await bot.send_message(CHANNEL_ID, message_text, parse_mode="Markdown")
-                                logging.info("✅ Сповіщення успішно надіслано в Telegram-канал!")
+                                logging.info("✅ Сповіщення успішно надіслано!")
                             else:
-                                logging.info("💤 Статус не змінився, повідомлення не надсилаємо.")
+                                logging.info("💤 Статус без змін.")
                             
                             last_alert_status = current_status
                             success = True
                             break 
                         else:
-                            logging.warning(f"⚠️ Нептун повернув неочікуваний статус: {response.status}")
+                            logging.warning(f"⚠️ Нептун повернув статус: {response.status}")
                             
                 except Exception as e:
-                    logging.warning(f"❌ Помилка під час запиту до Нептуна: {e}")
+                    logging.warning(f"❌ Помилка запиту: {e}")
                     continue
             
             if not success:
-                logging.info("🛡️ [Anti-Block Mode] Нептун тимчасово недоступний, тримаємо сервер активним...")
+                logging.info("🛡️ [Anti-Block Mode] Повторна спроба через 30 секунд...")
             
-            logging.info("⏳ Очікування 30 секунд до наступної перевірки...\n")
             await asyncio.sleep(30)
 
 
 async def handle_root_ping(request):
-    return web.Response(text="Nizhyn Alert Bot with Neptun integration is running 24/7! 🚀", content_type="text/plain")
+    return web.Response(text="Nizhyn Alert Bot is running 24/7! 🚀", content_type="text/plain")
 
 
 async def setup_background_loop(app):
