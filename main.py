@@ -30,51 +30,63 @@ async def check_alert_status():
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
     }
     
-    logging.info("Фоновий моніторинг повітряних тривог запущено.")
+    logging.info("🚀 Фоновий моніторинг повітряних тривог запущено і готовий до роботи.")
 
     async with ClientSession() as session:
         while True:
+            logging.info("🔍 Починаємо новий цикл перевірки джерел тривоги...")
             success = False
             
             for url in sources:
                 try:
+                    logging.info(f"🌐 Пробуємо надіслати запит до джерела: {url}")
                     async with session.get(url, headers=headers, timeout=10) as response:
+                        logging.info(f"📥 Отримано відповідь від {url} із кодом статусу: {response.status}")
+                        
                         if response.status == 200:
-                            # Пробуємо розпарсити як JSON, щоб кирилиця розшифрувалася нормально
                             try:
                                 json_data = await response.json()
                                 raw_text = str(json_data)
+                                logging.info(f"📄 Дані з {url} успішно прочитані як JSON.")
                             except Exception:
                                 raw_text = await response.text()
+                                logging.info(f"📄 Дані з {url} прочитані як звичайний текст.")
                             
-                            # Перевіряємо наявність тривоги для Чернігівщини або Ніжина
+                            # Перевірка наявності тривоги
                             is_chernihiv_alert = ("Чернігівська" in raw_text or "Ніжин" in raw_text) and ("active" in raw_text or "1" in raw_text or "true" in raw_text.lower())
                             current_status = "active" if is_chernihiv_alert else "clear"
                             
-                            logging.info(f"Джерело [{url}] успішне. Статус для Чернігівщини: {current_status}")
+                            logging.info(f"🔎 Результат аналізу для [{url}]: визначено статус -> [{current_status.upper()}]")
                             
                             if last_alert_status is None:
                                 last_alert_status = current_status
-                                logging.info(f"Початковий статус встановлено: {current_status}")
+                                logging.info(f"📌 Початковий статус успішно встановлено в пам'яті: {current_status}")
                             elif current_status != last_alert_status:
                                 message_text = (
                                     "🔴 **УВАГА! Повітряна тривога в Ніжинському районі!** Пройдіть в укриття!"
                                     if current_status == "active"
                                     else "🟢 **Відбій повітряної тривоги в Ніжинському районі.** Загроза минула."
                                 )
+                                logging.info(f"⚡ УВАГА! Статус змінився з [{last_alert_status}] на [{current_status}]! Надсилаємо сповіщення в канал...")
                                 await bot.send_message(CHANNEL_ID, message_text, parse_mode="Markdown")
-                                logging.info("⚠️ Зміна статусу! Сповіщення успішно надіслано в Telegram-канал!")
+                                logging.info("✅ Сповіщення успішно надіслано в Telegram-канал!")
+                            else:
+                                logging.info(f"💤 Статус не змінився (залишився {current_status}), повідомлення не надсилаємо.")
                             
                             last_alert_status = current_status
                             success = True
-                            break 
+                            break # Виходимо з циклу джерел, бо успішно отримали дані
+                        else:
+                            logging.warning(f"⚠️ Джерело {url} повернуло неочікуваний статус: {response.status}")
+                            
                 except Exception as e:
-                    logging.warning(f"Помилка при запиті до {url}: {e}")
+                    logging.warning(f"❌ Помилка під час запиту до {url}: {e}")
                     continue
             
             if not success:
-                logging.warning("⚠️ Не вдалося отримати дані ні з одного джерела в цьому циклі.")
+                logging.warning("⚠️ Не вдалося отримати дані з жодного джерела в цьому циклі. Повторимо спробу через 30 секунд.")
             
+            logging.info("⏳ Очікування 30 секунд до наступної перевірки...\n")
             await asyncio.sleep(30)
 
 
