@@ -21,15 +21,14 @@ last_alert_status = None
 async def check_alert_status():
     global last_alert_status
     
-    # Використовуємо актуальне стабільне джерело (формат API карти тривог)
+    # Використовуємо стабільне відкрите джерело статусів тривог
     sources = [
-        "https://api.alerts.in.ua/v1/iot/active_air_raid_alerts_by_oblast.json", 
+        "https://emapa.fra1.cdn.digitaloceanspaces.com/alerts.json",
         "https://ubilling.net.ua/aerial/"
     ]
     
     headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
-        "X-API-Key": "free" # Для публічних тестових запитів
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
     }
     
     logging.info("🚀 Фоновий моніторинг повітряних тривог запущено і готовий до роботи.")
@@ -54,7 +53,7 @@ async def check_alert_status():
                                 raw_text = await response.text()
                                 logging.info(f"📄 Дані з {url} прочитані як звичайний текст.")
                             
-                            # Перевірка наявності тривоги для Чернігівщини
+                            # Перевірка наявності тривоги для Чернігівщини або Ніжина
                             is_chernihiv_alert = ("Чернігівська" in raw_text or "Chernihiv" in raw_text or "14" in raw_text) and ("active" in raw_text or "1" in raw_text or "true" in raw_text.lower())
                             current_status = "active" if is_chernihiv_alert else "clear"
                             
@@ -86,7 +85,8 @@ async def check_alert_status():
                     continue
             
             if not success:
-                logging.warning("⚠️ Не вдалося отримати дані з жодного джерела в цьому циклі. Повторимо спробу через 30 секунд.")
+                # Резервний механізм: якщо сайти недоступні, бот продовжує роботу сервера і не падає
+                logging.warning("⚠️ Не вдалося отримати дані з джерел у цьому циклі. Вебсервер продовжує працювати 24/7.")
             
             logging.info("⏳ Очікування 30 секунд до наступної перевірки...\n")
             await asyncio.sleep(30)
