@@ -23,8 +23,9 @@ last_alert_status = None
 async def check_alert_status():
     global last_alert_status
     
-    # Список резервних джерел для надійності
+    # Список джерел: першим йде Нептун, далі резервні відкриті карти
     sources = [
+        "https://neptun.net.ua/alerts",  # Або твоє точне посилання на Neptun API
         "https://ubilling.net.ua/aerial/",
         "https://emapa.fra1.cdn.digitaloceanspaces.com/alerts.json"
     ]
@@ -33,7 +34,7 @@ async def check_alert_status():
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
     }
     
-    logging.info("Фоновий моніторинг повітряних тривог із підтримкою резервних джерел запущено.")
+    logging.info("Фоновий моніторинг повітряних тривог із розширеною системою резервних джерел запущено.")
 
     async with ClientSession() as session:
         while True:
@@ -43,9 +44,13 @@ async def check_alert_status():
                 try:
                     async with session.get(url, headers=headers, timeout=10) as response:
                         if response.status == 200:
-                            data = await response.text()
+                            try:
+                                data = await response.json()
+                                raw_text = str(data)
+                            except:
+                                raw_text = await response.text()
                             
-                            is_chernihiv_alert = "Чернігівська" in data and ("active" in data or "1" in data)
+                            is_chernihiv_alert = "Чернігівська" in raw_text and ("active" in raw_text or "1" in raw_text)
                             current_status = "active" if is_chernihiv_alert else "clear"
                             
                             logging.info(f"Успішна перевірка через джерело [{url}]. Статус: {current_status}")
@@ -74,7 +79,7 @@ async def check_alert_status():
 
 
 async def handle_root_ping(request):
-    return web.Response(text="Nizhyn Alert Bot is running 24/7 with Multi-Source Failover! 🚀", content_type="text/plain")
+    return web.Response(text="Nizhyn Alert Bot is running 24/7 with Neptun & Multi-Source Failover! 🚀", content_type="text/plain")
 
 
 async def setup_background_loop(app):
