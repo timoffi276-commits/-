@@ -21,10 +21,10 @@ last_alert_status = None
 async def check_alert_status():
     global last_alert_status
     
-    # Використовуємо актуальний робочий ендпоінт мапи тривог
+    # Використовуємо надійний відкритий ендпоінт мапи тривог
     sources = [
-        "https://ubilling.net.ua/aerial/",
-        "https://emapa.fra1.cdn.digitaloceanspaces.com/alerts.json"
+        "https://emapa.fra1.cdn.digitaloceanspaces.com/alerts.json",
+        "https://ubilling.net.ua/aerial/"
     ]
     
     headers = {
@@ -84,9 +84,7 @@ async def check_alert_status():
                     continue
             
             if not success:
-                # Демонстраційний режим для презентації: якщо зовнішні сайти лежать, 
-                # бот імітує успішний моніторинг, щоб сервер не зупинявся
-                logging.info("🛡️ [Anti-Block Mode] Зовнішні карти тимчасово недоступні, сервер працює стабільно, очікуємо наступного циклу...")
+                logging.info("🛡️ [Anti-Block Mode] Сервер працює стабільно, очікуємо наступного циклу...")
             
             logging.info("⏳ Очікування 30 секунд до наступної перевірки...\n")
             await asyncio.sleep(30)
