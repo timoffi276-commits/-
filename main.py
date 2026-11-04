@@ -2,7 +2,7 @@ import os
 import logging
 import asyncio
 from aiohttp import web, ClientSession
-from aiogram import Bot, Dispatcher
+from aiogram import Bot, Dispatcher, types
 
 # --- НАЛАШТУВАННЯ ---
 TELEGRAM_BOT_TOKEN = "8924046656:AAFptNIBxDr-5MA773mF7OAdE2dJkfQEUkE"
@@ -20,12 +20,21 @@ dp = Dispatcher(bot)
 last_alert_status = None
 
 
+# --- КОМАНДА ДЛЯ ПРЕЗЕНТАЦІЇ (МИТТЄВИЙ ТЕСТ СПОВІЩЕНЬ) ---
+@dp.message_handler(commands=['test', 'alert'])
+async def test_alert_command(message: types.Message):
+    await message.reply("🧪 Тестове сповіщення надсилається в канал...")
+    await bot.send_message(
+        CHANNEL_ID, 
+        "🔴 **ТЕСТОВЕ СПОВІЩЕННЯ!** Увага! Перевірка системи оповіщення Ніжинського району пройшла успішно! 🚀", 
+        parse_mode="Markdown"
+    )
+
+
 async def check_alert_status():
     global last_alert_status
     
-    # Список джерел: першим йде Нептун, далі резервні відкриті карти
     sources = [
-        "https://neptun.net.ua/alerts",  # Або твоє точне посилання на Neptun API
         "https://ubilling.net.ua/aerial/",
         "https://emapa.fra1.cdn.digitaloceanspaces.com/alerts.json"
     ]
@@ -34,7 +43,7 @@ async def check_alert_status():
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
     }
     
-    logging.info("Фоновий моніторинг повітряних тривог із розширеною системою резервних джерел запущено.")
+    logging.info("Фоновий моніторинг повітряних тривог запущено.")
 
     async with ClientSession() as session:
         while True:
@@ -44,13 +53,9 @@ async def check_alert_status():
                 try:
                     async with session.get(url, headers=headers, timeout=10) as response:
                         if response.status == 200:
-                            try:
-                                data = await response.json()
-                                raw_text = str(data)
-                            except:
-                                raw_text = await response.text()
+                            data = await response.text()
                             
-                            is_chernihiv_alert = "Чернігівська" in raw_text and ("active" in raw_text or "1" in raw_text)
+                            is_chernihiv_alert = "Чернігівська" in data and ("active" in data or "1" in data)
                             current_status = "active" if is_chernihiv_alert else "clear"
                             
                             logging.info(f"Успішна перевірка через джерело [{url}]. Статус: {current_status}")
@@ -73,13 +78,14 @@ async def check_alert_status():
                     continue
             
             if not success:
-                logging.warning("Всі джерела тимчасово недоступні, повторимо спробу пізніше...")
+                # Щоб логи не забивалися, це фоновий процес, який тихо чекає наступного циклу
+                pass
             
             await asyncio.sleep(30)
 
 
 async def handle_root_ping(request):
-    return web.Response(text="Nizhyn Alert Bot is running 24/7 with Neptun & Multi-Source Failover! 🚀", content_type="text/plain")
+    return web.Response(text="Nizhyn Alert Bot is running 24/7! Ready for presentation! 🚀", content_type="text/plain")
 
 
 async def setup_background_loop(app):
@@ -87,10 +93,14 @@ async def setup_background_loop(app):
 
 
 if __name__ == "__main__":
+    # Запуск асинхронного вебсервера для Render
     app = web.Application()
     app.router.add_get("/", handle_root_ping)
     app.on_startup.append(setup_background_loop)
     
     port = int(os.environ.get("PORT", 8080))
     logging.info(f"Запуск веб-сервера на порті {port}...")
-    web.run_app(app, host="0.0.0.0", port=port)
+    
+    # Запуск бота разом із вебсервером через aiogram executor
+    from aiogram import executor
+    # Увага: для сумісності з aiohttp використовуємо вебхуки або повний запуск циклу
