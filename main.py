@@ -45,12 +45,15 @@ async def check_alert_status():
                             raw_text = await response.text()
                             text_lower = raw_text.lower()
                             
-                            # Чіткіші маркери для Ніжина та тривоги
+                            # Маркери стану з пріоритетом на відбій
+                            has_clear = "відбій" in text_lower or "скасовано" in text_lower or "спокійно" in text_lower
+                            has_alarm = "тривога" in text_lower or "небезпека" in text_lower
                             has_nizhyn = "ніжин" in text_lower
-                            has_alarm = "тривога" in text_lower or "активна" in text_lower or "небезпека" in text_lower
-                            has_clear = "відбій" in text_lower or "скасовано" in text_lower
                             
-                            if has_alarm and not has_clear:
+                            # ЗАХИСНА ЛОГІКА: якщо є чіткий відбій — це завжди clear
+                            if has_clear:
+                                current_status = "clear"
+                            elif has_alarm and has_nizhyn:
                                 current_status = "active"
                             else:
                                 current_status = "clear"
@@ -91,7 +94,7 @@ async def check_alert_status():
                 logging.info("🛡️ [Anti-Block Mode] Сервер працює, повторимо спробу за 30 секунд...")
             
             logging.info("⏳ Очікування 30 секунд до наступної перевірки...\n")
-            await asyncio.sleep(30)
+            asyncio.sleep(30)
 
 
 async def handle_root_ping(request):
