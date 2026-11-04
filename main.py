@@ -40,29 +40,40 @@ async def check_alert_status():
                 try:
                     async with session.get(url, headers=headers, timeout=10) as response:
                         if response.status == 200:
-                            data = await response.text()
+                            # Пробуємо розпарсити як JSON, щоб кирилиця розшифрувалася нормально
+                            try:
+                                json_data = await response.json()
+                                raw_text = str(json_data)
+                            except Exception:
+                                raw_text = await response.text()
                             
-                            is_chernihiv_alert = "Чернігівська" in data and ("active" in data or "1" in data)
+                            # Перевіряємо наявність тривоги для Чернігівщини або Ніжина
+                            is_chernihiv_alert = ("Чернігівська" in raw_text or "Ніжин" in raw_text) and ("active" in raw_text or "1" in raw_text or "true" in raw_text.lower())
                             current_status = "active" if is_chernihiv_alert else "clear"
                             
-                            logging.info(f"Успішна перевірка через джерело [{url}]. Статус: {current_status}")
+                            logging.info(f"Джерело [{url}] успішне. Статус для Чернігівщини: {current_status}")
                             
                             if last_alert_status is None:
                                 last_alert_status = current_status
+                                logging.info(f"Початковий статус встановлено: {current_status}")
                             elif current_status != last_alert_status:
-                                if current_status == "active":
-                                    message_text = "🔴 **УВАГА! Повітряна тривога в Ніжинському районі!** Пройдіть в укриття!"
-                                else:
-                                    message_text = "🟢 **Відбій повітряної тривоги в Ніжинському районі.** Загроза минула."
-                                
+                                message_text = (
+                                    "🔴 **УВАГА! Повітряна тривога в Ніжинському районі!** Пройдіть в укриття!"
+                                    if current_status == "active"
+                                    else "🟢 **Відбій повітряної тривоги в Ніжинському районі.** Загроза минула."
+                                )
                                 await bot.send_message(CHANNEL_ID, message_text, parse_mode="Markdown")
-                                logging.info("Сповіщення про зміну статусу надіслано в Telegram-канал!")
+                                logging.info("⚠️ Зміна статусу! Сповіщення успішно надіслано в Telegram-канал!")
                             
                             last_alert_status = current_status
                             success = True
                             break 
-                except Exception:
+                except Exception as e:
+                    logging.warning(f"Помилка при запиті до {url}: {e}")
                     continue
+            
+            if not success:
+                logging.warning("⚠️ Не вдалося отримати дані ні з одного джерела в цьому циклі.")
             
             await asyncio.sleep(30)
 
@@ -82,6 +93,4 @@ if __name__ == "__main__":
     
     port = int(os.environ.get("PORT", 8080))
     logging.info(f"Запуск веб-сервера на порті {port}...")
-    
-    # Головний рядок, який тримає сервер активним і не дає йому вимкнутися
     web.run_app(app, host="0.0.0.0", port=port)
