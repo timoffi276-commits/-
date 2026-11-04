@@ -29,7 +29,7 @@ async def check_alert_status():
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
     }
     
-    logging.info("🚀 Фоновий моніторинг повітряних тривог через Нептун запущено.")
+    logging.info("🚀 Фоновий моніторинг повітряних тривог для Ніжина запущено.")
 
     async with ClientSession() as session:
         while True:
@@ -43,33 +43,32 @@ async def check_alert_status():
                         logging.info(f"📥 Отримано відповідь від Нептуна із кодом статусу: {response.status}")
                         
                         if response.status == 200:
-                            try:
-                                json_data = await response.json()
-                                raw_text = str(json_data)
-                                logging.info("📄 Дані з Нептуна прочитані як JSON.")
-                            except Exception:
-                                raw_text = await response.text()
-                                logging.info("📄 Дані з Нептуна прочитані як текст/HTML.")
+                            raw_text = await response.text()
+                            text_lower = raw_text.lower()
                             
-                            is_alert = ("тривога" in raw_text.lower() or "active" in raw_text.lower() or "1" in raw_text) and ("ніжин" in raw_text.lower() or "чернігів" in raw_text.lower() or "alarm" in raw_text.lower())
+                            # Шукаємо згадки саме Ніжина або району та статус тривоги
+                            is_nizhyn_mentioned = "ніжин" in text_lower
+                            has_alarm = "тривога" in text_lower or "активна" in text_lower or "небезпека" in text_lower
+                            has_clear = "відбій" in text_lower or "скасовано" in text_lower
                             
-                            if "небезпека" in raw_text.lower() or "тривога" in raw_text.lower():
+                            # Якщо згадується Ніжин і є тривога (і немає відбою)
+                            if is_nizhyn_mentioned and has_alarm and not has_clear:
                                 current_status = "active"
                             else:
                                 current_status = "clear"
                                 
-                            logging.info(f"🔎 Результат аналізу Нептуна: визначено статус -> [{current_status.upper()}]")
+                            logging.info(f"🔎 Результат аналізу для Ніжина: визначено статус -> [{current_status.upper()}]")
                             
                             if last_alert_status is None:
                                 last_alert_status = current_status
                                 logging.info(f"📌 Початковий статус встановлено в пам'яті: {current_status}")
                             elif current_status != last_alert_status:
                                 message_text = (
-                                    "🔴 **УВАГА! Повітряна тривога в Ніжині!** (Дані від Нептун)"
+                                    "🔴 **УВАГА! Повітряна тривога в Ніжині та районі!** Пройдіть в укриття!"
                                     if current_status == "active"
-                                    else "🟢 **Відбій повітряної тривоги в Ніжині.** (Дані від Нептун)"
+                                    else "🟢 **Відбій повітряної тривоги в Ніжині та районі.** Загроза минула."
                                 )
-                                logging.info("⚡ Статус змінився! Надсилаємо сповіщення в канал...")
+                                logging.info(f"⚡ Статус змінився з [{last_alert_status}] на [{current_status}]! Надсилаємо сповіщення в канал...")
                                 await bot.send_message(CHANNEL_ID, message_text, parse_mode="Markdown")
                                 logging.info("✅ Сповіщення успішно надіслано в Telegram-канал!")
                             else:
@@ -86,7 +85,7 @@ async def check_alert_status():
                     continue
             
             if not success:
-                logging.info("🛡️ [Anti-Block Mode] Нептун тимчасово недоступний для запиту, тримаємо сервер активним...")
+                logging.info("🛡️ [Anti-Block Mode] Нептун тимчасово недоступний, тримаємо сервер активним...")
             
             logging.info("⏳ Очікування 30 секунд до наступної перевірки...\n")
             await asyncio.sleep(30)
