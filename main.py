@@ -45,50 +45,52 @@ async def check_alert_status():
                             raw_text = await response.text()
                             text_lower = raw_text.lower()
                             
-                            # Логуємо невелику частину тексту зі сторінки для контролю
-                            logging.info(f"📄 Зчитано символів з сайту: {len(raw_text)}")
-                            
-                            # Перевіряємо наявність маркерів тривоги чи активного стану на сторінці
-                            # (Можемо шукати класи стилів або специфічні слова, які з'являються при тривозі)
-                            has_active_class = "alarm" in text_lower or "danger" in text_lower or "red" in text_lower or "активна" in text_lower
+                            # Чіткіші маркери для Ніжина та тривоги
                             has_nizhyn = "ніжин" in text_lower
+                            has_alarm = "тривога" in text_lower or "активна" in text_lower or "небезпека" in text_lower
+                            has_clear = "відбій" in text_lower or "скасовано" in text_lower
                             
-                            # Якщо сайт загалом сигналізує про небезпеку
-                            if has_active_class and ("тривога" in text_lower or "небезпека" in text_lower):
+                            if has_alarm and not has_clear:
                                 current_status = "active"
                             else:
                                 current_status = "clear"
                                 
-                            logging.info(f"🔎 Поточний визначений статус: [{current_status.upper()}]")
+                            logging.info(f"🔎 Поточний визначений статус: [{current_status.upper()}] (Попередній: [{last_alert_status}])")
                             
+                            # Якщо це найперша перевірка після запуску
                             if last_alert_status is None:
                                 last_alert_status = current_status
-                                logging.info(f"📌 Початковий статус збережено: {current_status}")
+                                logging.info(f"📌 Початковий статус збережено в пам'яті: {current_status}")
+                            
+                            # Якщо статус реально змінився
                             elif current_status != last_alert_status:
                                 message_text = (
                                     "🔴 **УВАГА! Повітряна тривога в Ніжині та районі!** Пройдіть в укриття!"
                                     if current_status == "active"
                                     else "🟢 **Відбій повітряної тривоги в Ніжині та районі.** Загроза минула."
                                 )
-                                logging.info(f"⚡ ЗМІНА СТАТУСУ з [{last_alert_status}] на [{current_status}]! Надсилаємо в канал...")
+                                logging.info(f"⚡ ЗМІНА СТАТУСУ! Надсилаємо сповіщення в канал...")
                                 await bot.send_message(CHANNEL_ID, message_text, parse_mode="Markdown")
-                                logging.info("✅ Сповіщення успішно надіслано!")
+                                logging.info("✅ Сповіщення успішно надіслано в Telegram-канал!")
+                                
+                                # Оновлюємо статус тільки після успішної відправки
+                                last_alert_status = current_status
                             else:
-                                logging.info("💤 Статус без змін.")
+                                logging.info("💤 Статус без змін, сповіщення не потрібне.")
                             
-                            last_alert_status = current_status
                             success = True
                             break 
                         else:
                             logging.warning(f"⚠️ Нептун повернув статус: {response.status}")
                             
                 except Exception as e:
-                    logging.warning(f"❌ Помилка запиту: {e}")
+                    logging.warning(f"❌ Помилка запиту до Нептуна: {e}")
                     continue
             
             if not success:
-                logging.info("🛡️ [Anti-Block Mode] Повторна спроба через 30 секунд...")
+                logging.info("🛡️ [Anti-Block Mode] Сервер працює, повторимо спробу за 30 секунд...")
             
+            logging.info("⏳ Очікування 30 секунд до наступної перевірки...\n")
             await asyncio.sleep(30)
 
 
