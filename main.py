@@ -1,5 +1,4 @@
-
-                import os
+import os
 import logging
 import asyncio
 from aiohttp import web, ClientSession
@@ -22,7 +21,6 @@ last_alert_status = None
 async def check_alert_status():
     global last_alert_status
     
-    # Підключаємо Нептун як основне джерело!
     sources = [
         "https://neptun.in.ua/"
     ]
@@ -53,10 +51,8 @@ async def check_alert_status():
                                 raw_text = await response.text()
                                 logging.info("📄 Дані з Нептуна прочитані як текст/HTML.")
                             
-                            # Аналізуємо текст на наявність тривоги чи згадки Ніжина/Чернігівщини
                             is_alert = ("тривога" in raw_text.lower() or "active" in raw_text.lower() or "1" in raw_text) and ("ніжин" in raw_text.lower() or "чернігів" in raw_text.lower() or "alarm" in raw_text.lower())
                             
-                            # Якщо специфічних ключових слів немає, дивимося загальний статус на сторінці
                             if "небезпека" in raw_text.lower() or "тривога" in raw_text.lower():
                                 current_status = "active"
                             else:
@@ -73,7 +69,7 @@ async def check_alert_status():
                                     if current_status == "active"
                                     else "🟢 **Відбій повітряної тривоги в Ніжині.** (Дані від Нептун)"
                                 )
-                                logging.info(f"⚡ Статус змінився! Надсилаємо сповіщення в канал...")
+                                logging.info("⚡ Статус змінився! Надсилаємо сповіщення в канал...")
                                 await bot.send_message(CHANNEL_ID, message_text, parse_mode="Markdown")
                                 logging.info("✅ Сповіщення успішно надіслано в Telegram-канал!")
                             else:
