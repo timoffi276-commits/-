@@ -2,8 +2,6 @@ import os
 import logging
 import asyncio
 from aiohttp import web, ClientSession
-from aiogram import Bot, Dispatcher, types
-from aiogram.filters import CommandStart
 
 # --- НАЛАШТУВАННЯ ---
 TELEGRAM_BOT_TOKEN = "8924046656:AAFptNIBxDr-5MA773mF7OAdE2dJkfQEUkE"
@@ -15,14 +13,25 @@ logging.basicConfig(
     datefmt="%Y-%m-%d %H:%M:%S"
 )
 
-bot = Bot(token=TELEGRAM_BOT_TOKEN)
-dp = Dispatcher()
 last_alert_status = None
 
 
-@dp.message(CommandStart())
-async def start_handler(message: types.Message):
-    await message.answer("👋 Привіт! Бот моніторингу повітряної тривоги в Ніжині працює стабільно!")
+async def send_telegram_message(session, text):
+    url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
+    payload = {
+        "chat_id": CHANNEL_ID,
+        "text": text,
+        "parse_mode": "Markdown"
+    }
+    try:
+        async with session.post(url, json=payload, timeout=10) as resp:
+            if resp.status == 200:
+                logging.info("✅ Сповіщення успішно надіслано в Telegram-канал!")
+            else:
+                body = await resp.text()
+                logging.error(f"❌ Помилка Telegram API [{resp.status}]: {body}")
+    except Exception as e:
+        logging.error(f"❌ Помилка мережі при відправці в Telegram: {e}")
 
 
 async def check_alert_status():
@@ -46,12 +55,10 @@ async def check_alert_status():
                         raw_text = await response.text()
                         text_lower = raw_text.lower()
                         
-                        # Перевіряємо наявність Ніжина/району та ключових слів
                         has_nizhyn = "ніжин" in text_lower
                         has_clear = "відбій" in text_lower or "скасовано" in text_lower or "спокійно" in text_lower
                         has_alarm = "тривога" in text_lower or "небезпека" in text_lower
                         
-                        # Логіка визначення стану для Ніжина
                         if has_clear:
                             current_status = "clear"
                         elif has_alarm and has_nizhyn:
@@ -72,13 +79,8 @@ async def check_alert_status():
                                 else "🟢 **Відбій повітряної тривоги в Ніжині та районі.** Загроза минула."
                             )
                             logging.info(f"⚡ ЗМІНА СТАТУСУ! Надсилаємо в {CHANNEL_ID}...")
-                            
-                            try:
-                                await bot.send_message(chat_id=CHANNEL_ID, text=message_text, parse_mode="Markdown")
-                                logging.info("✅ Успішно надіслано в канал!")
-                                last_alert_status = current_status
-                            except Exception as tg_err:
-                                logging.error(f"❌ Помилка відправки в Telegram: {tg_err}")
+                            await send_telegram_message(session, message_text)
+                            last_alert_status = current_status
                         else:
                             logging.info("💤 Статус без змін.")
                     else:
@@ -95,7 +97,6 @@ async def handle_root_ping(request):
 
 async def setup_background_tasks(app):
     asyncio.create_task(check_alert_status())
-    asyncio.create_task(dp.start_polling(bot))
 
 
 if __name__ == "__main__":
