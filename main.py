@@ -20,7 +20,7 @@ dp = Dispatcher()
 last_alert_status = None
 
 
-# Обробник команди /start (щоб перевірити бота в приватних повідомленнях)
+# Обробник команды /start (для перевірки бота в особистих повідомленнях)
 @dp.message(CommandStart())
 async def start_handler(message: types.Message):
     await message.answer("👋 Привіт! Бот моніторингу повітряної тривоги в Ніжині працює стабільно!")
@@ -95,6 +95,7 @@ async def check_alert_status():
             if not success:
                 logging.info("🛡️ Повторна спроба за 30 секунд...")
             
+            # Правильне використання await для уникнення помилки запуску
             await asyncio.sleep(30)
 
 
@@ -103,9 +104,7 @@ async def handle_root_ping(request):
 
 
 async def setup_background_tasks(app):
-    # Запускаємо перевірку Нептуна
     asyncio.create_task(check_alert_status())
-    # Запускаємо обробку команд бота (/start тощо)
     asyncio.create_task(dp.start_polling(bot))
 
 
